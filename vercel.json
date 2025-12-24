@@ -47,10 +47,5 @@
             "src": "/(.*)",
             "dest": "/public/$1"
         }
-    ],
-    "env": {
-        "IPTV_SERVER_URL": "@iptv_server_url",
-        "IPTV_USERNAME": "@iptv_username",
-        "IPTV_PASSWORD": "@iptv_password"
-    }
+    ]
 }
