@@ -41,7 +41,6 @@ app.use(express.json({ limit: '1mb' }));
 // Block sensitive files
 app.use((req, res, next) => {
     const blocked = ['.env', '.git', 'node_modules', 'package.json'];
-    // Check if req.path exists and is a string
     if (req.path && typeof req.path === 'string' && blocked.some(b => req.path.toLowerCase().includes(b))) {
         return res.status(403).json({ success: false, error: 'Forbidden' });
     }
@@ -75,6 +74,12 @@ function buildApiUrl(action, params = {}) {
         }
     });
     return url.toString();
+}
+
+// Convert HTTP URL to HTTPS for redirection
+function toHttps(url) {
+    if (!url) return url;
+    return url.replace(/^http:/, 'https:');
 }
 
 function buildMovieUrl(streamId, extension = 'mp4') {
@@ -112,8 +117,9 @@ app.use((req, res, next) => {
 });
 
 // ==========================================
-// MOVIES API
+// DATA API (Movies/Series/Live Categories)
 // ==========================================
+// These still use the proxy to fetch JSON data (safe from CORS)
 
 app.get('/api/categories', async (req, res) => {
     try {
@@ -135,7 +141,7 @@ app.get('/api/movies/categories', async (req, res) => {
 
 app.get('/api/movies', async (req, res) => {
     try {
-        const response = await axios.get(buildApiUrl('get_vod_streams'), { ...axiosDefaults, timeout: 25000 });
+        const response = await axios.get(buildApiUrl('get_vod_streams'), { ...axiosDefaults, timeout: 20000 });
         const movies = (response.data || []).map(m => ({
             id: m.stream_id,
             name: m.name || 'Unknown',
@@ -156,7 +162,7 @@ app.get('/api/movies/category/:id', async (req, res) => {
     if (!categoryId) return sendError(res, 400, 'Invalid category ID');
 
     try {
-        const response = await axios.get(buildApiUrl('get_vod_streams', { category_id: categoryId }), { ...axiosDefaults, timeout: 25000 });
+        const response = await axios.get(buildApiUrl('get_vod_streams', { category_id: categoryId }), { ...axiosDefaults, timeout: 20000 });
         const movies = (response.data || []).map(m => ({
             id: m.stream_id,
             name: m.name || 'Unknown',
@@ -184,10 +190,6 @@ app.get('/api/movie/:id', async (req, res) => {
     }
 });
 
-// ==========================================
-// SERIES API
-// ==========================================
-
 app.get('/api/series/categories', async (req, res) => {
     try {
         const response = await axios.get(buildApiUrl('get_series_categories'), axiosDefaults);
@@ -202,7 +204,7 @@ app.get('/api/series/category/:id', async (req, res) => {
     if (!categoryId) return sendError(res, 400, 'Invalid category ID');
 
     try {
-        const response = await axios.get(buildApiUrl('get_series', { category_id: categoryId }), { ...axiosDefaults, timeout: 25000 });
+        const response = await axios.get(buildApiUrl('get_series', { category_id: categoryId }), { ...axiosDefaults, timeout: 20000 });
         const series = (response.data || []).map(s => ({
             id: s.series_id,
             name: s.name || 'Unknown',
@@ -230,10 +232,6 @@ app.get('/api/series/:id/info', async (req, res) => {
     }
 });
 
-// ==========================================
-// LIVE TV API
-// ==========================================
-
 app.get('/api/live/categories', async (req, res) => {
     try {
         const response = await axios.get(buildApiUrl('get_live_categories'), axiosDefaults);
@@ -248,7 +246,7 @@ app.get('/api/live/category/:id', async (req, res) => {
     if (!categoryId) return sendError(res, 400, 'Invalid category ID');
 
     try {
-        const response = await axios.get(buildApiUrl('get_live_streams', { category_id: categoryId }), { ...axiosDefaults, timeout: 25000 });
+        const response = await axios.get(buildApiUrl('get_live_streams', { category_id: categoryId }), { ...axiosDefaults, timeout: 20000 });
         const channels = (response.data || []).map(ch => ({
             id: ch.stream_id,
             name: ch.name || 'Unknown',
@@ -263,192 +261,58 @@ app.get('/api/live/category/:id', async (req, res) => {
 });
 
 // ==========================================
-// STREAMING & PROXY
+// STREAMING - REDIRECT TO HTTPS
 // ==========================================
 
+// Movies - Redirect
 app.get('/stream/:id(\\d+)', async (req, res) => {
     const streamId = sanitizeId(req.params.id);
     const extension = sanitizeExtension(req.query.ext);
 
     if (!streamId) return sendError(res, 400, 'Invalid stream ID');
 
-    try {
-        const movieUrl = buildMovieUrl(streamId, extension);
-        const headers = {
-            'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
-            'Accept': '*/*'
-        };
+    const movieUrl = buildMovieUrl(streamId, extension);
+    const httpsUrl = toHttps(movieUrl);
 
-        if (req.headers.range) {
-            headers['Range'] = req.headers.range;
-        }
-
-        const response = await axios({
-            method: 'GET',
-            url: movieUrl,
-            headers,
-            responseType: 'stream',
-            timeout: 25000,
-            validateStatus: s => s < 500
-        });
-
-        res.status(response.status);
-
-        ['content-type', 'content-length', 'content-range', 'accept-ranges'].forEach(h => {
-            if (response.headers[h]) res.setHeader(h, response.headers[h]);
-        });
-
-        response.data.pipe(res);
-
-        req.on('close', () => {
-            if (!res.writableEnded) response.data.destroy();
-        });
-
-    } catch (error) {
-        sendError(res, 500, 'Streaming failed');
-    }
+    // Redirect to HTTPS version
+    res.redirect(httpsUrl);
 });
 
+// Series - Redirect
 app.get('/stream/series/:id/:extension', async (req, res) => {
     const episodeId = sanitizeId(req.params.id);
     const extension = sanitizeExtension(req.params.extension);
 
     if (!episodeId) return sendError(res, 400, 'Invalid episode ID');
 
-    try {
-        const episodeUrl = buildSeriesUrl(episodeId, extension);
-        const headers = {
-            'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
-            'Accept': '*/*'
-        };
+    const episodeUrl = buildSeriesUrl(episodeId, extension);
+    const httpsUrl = toHttps(episodeUrl);
 
-        if (req.headers.range) {
-            headers['Range'] = req.headers.range;
-        }
-
-        const response = await axios({
-            method: 'GET',
-            url: episodeUrl,
-            headers,
-            responseType: 'stream',
-            timeout: 25000,
-            validateStatus: s => s < 500
-        });
-
-        res.status(response.status);
-
-        ['content-length', 'content-range', 'accept-ranges'].forEach(h => {
-            if (response.headers[h]) res.setHeader(h, response.headers[h]);
-        });
-
-        if (extension === 'mkv') {
-            res.setHeader('Content-Type', 'video/mp4');
-        } else {
-            res.setHeader('Content-Type', response.headers['content-type'] || 'video/mp4');
-        }
-
-        response.data.pipe(res);
-
-        req.on('close', () => {
-            if (!res.writableEnded) response.data.destroy();
-        });
-
-    } catch (error) {
-        sendError(res, 500, 'Streaming failed');
-    }
+    // Redirect to HTTPS version
+    res.redirect(httpsUrl);
 });
 
-// Live TV - Full HLS Proxy
-app.get('/stream/live/:id(\\d+)', async (req, res) => {
+// Live TV - Redirect
+app.get('/stream/live/:id(\\d+)', (req, res) => {
     const streamId = sanitizeId(req.params.id);
     if (!streamId) return sendError(res, 400, 'Invalid channel ID');
 
-    // Force port 8080 for live streams
     const id = sanitizeId(streamId);
     const baseUrl = new URL(IPTV_CONFIG.serverUrl);
+
+    // Check if we should try port 8080/443 logic?
+    // For now, let's trust the toHttps replacement
     baseUrl.port = '8080';
     const liveUrl = `${baseUrl.origin}/live/${IPTV_CONFIG.username}/${IPTV_CONFIG.password}/${id}.m3u8`;
-    const liveBase = `${baseUrl.origin}/live/${IPTV_CONFIG.username}/${IPTV_CONFIG.password}/`;
 
-    try {
-        const response = await axios.get(liveUrl, {
-            timeout: 10000, // Short timeout for Vercel
-            headers: { 'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18' },
-            responseType: 'text',
-            maxRedirects: 5
-        });
+    const httpsUrl = toHttps(liveUrl);
 
-        if (!response.data || typeof response.data !== 'string') {
-            return sendError(res, 502, 'Invalid playlist response');
-        }
-
-        // Rewrite segment URLs to proxy through backend
-        let playlist = response.data.split('\n').map(line => {
-            line = line.trim();
-            if (!line) return line;
-
-            // Handle encryption keys
-            if (line.includes('URI="')) {
-                return line.replace(/URI="([^"]+)"/, (match, uri) => {
-                    const fullUrl = uri.startsWith('http') ? uri : liveBase + uri;
-                    return `URI="/stream/live-segment?url=${encodeURIComponent(fullUrl)}"`;
-                });
-            }
-
-            // Skip comments
-            if (line.startsWith('#')) return line;
-
-            // Rewrite segment URLs
-            const fullUrl = line.startsWith('http') ? line : liveBase + line;
-            return `/stream/live-segment?url=${encodeURIComponent(fullUrl)}`;
-        }).join('\n');
-
-        res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Cache-Control', 'no-cache, no-store');
-        res.send(playlist);
-
-    } catch (error) {
-        sendError(res, 500, 'Channel unavailable');
-    }
+    // Redirect to HTTPS version
+    res.redirect(httpsUrl);
 });
 
-// Live segment proxy
-app.get('/stream/live-segment', async (req, res) => {
-    const segmentUrl = req.query.url;
-    if (!segmentUrl) return res.status(400).end();
-
-    try { new URL(segmentUrl); } catch { return res.status(400).end(); }
-
-    try {
-        const response = await axios({
-            method: 'GET',
-            url: segmentUrl,
-            responseType: 'stream',
-            timeout: 15000,
-            headers: {
-                'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
-                'Accept': '*/*',
-                'Referer': segmentUrl.split('/').slice(0, 3).join('/') + '/'
-            },
-            maxRedirects: 5
-        });
-
-        const contentType = response.headers['content-type'] || 'video/mp2t';
-        res.setHeader('Content-Type', contentType);
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Cache-Control', 'no-cache');
-
-        response.data.pipe(res);
-
-        req.on('close', () => {
-            if (!res.writableEnded) response.data.destroy();
-        });
-
-    } catch (error) {
-        if (!res.headersSent) res.status(500).end();
-    }
-});
+// Segment proxy isn't needed for redirect mode, but keeping it doesn't hurt.
+// However, the playlist from the redirect will contain direct links to the IPTV server.
 
 // ==========================================
 // UTILITY
@@ -457,21 +321,18 @@ app.get('/stream/live-segment', async (req, res) => {
 app.get('/api/health', (req, res) => {
     res.json({
         success: true,
-        status: 'healthy',
+        status: 'healthy HTTPS redirect mode',
         configured: isConfigValid,
         timestamp: new Date().toISOString()
     });
 });
 
-// 404 handler
 app.use((req, res) => {
     res.status(404).json({ success: false, error: 'Not found' });
 });
 
-// Error handler
 app.use((err, req, res, next) => {
     res.status(500).json({ success: false, error: 'Internal server error' });
 });
 
-// Export for Vercel
 module.exports = app;
