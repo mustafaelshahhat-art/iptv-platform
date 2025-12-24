@@ -297,18 +297,14 @@ app.get('/stream/live/:id(\\d+)', (req, res) => {
     const streamId = sanitizeId(req.params.id);
     if (!streamId) return sendError(res, 400, 'Invalid channel ID');
 
+    // Force port 8080 and use HTTP (Browser handles Mixed Content in new tab)
     const id = sanitizeId(streamId);
     const baseUrl = new URL(IPTV_CONFIG.serverUrl);
-
-    // Check if we should try port 8080/443 logic?
-    // For now, let's trust the toHttps replacement
     baseUrl.port = '8080';
     const liveUrl = `${baseUrl.origin}/live/${IPTV_CONFIG.username}/${IPTV_CONFIG.password}/${id}.m3u8`;
 
-    const httpsUrl = toHttps(liveUrl);
-
-    // Redirect to HTTPS version
-    res.redirect(httpsUrl);
+    // Redirect to original HTTP URL
+    res.redirect(liveUrl);
 });
 
 // Segment proxy isn't needed for redirect mode, but keeping it doesn't hurt.
