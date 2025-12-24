@@ -137,11 +137,9 @@ function displayEpisodes(seasonNum) {
 }
 
 function playEpisode(id, ext, season, epNum) {
-    sessionStorage.setItem('currentEpisode', JSON.stringify({
-        id, name: `${seriesData.info?.name || 'Series'} - S${season}E${epNum}`,
-        season, episode: epNum
-    }));
-    window.location.href = `/player?id=${id}&ext=${ext}&type=series`;
+    if (!id) return;
+    const streamUrl = `${API}/stream/series/${id}/${ext || 'mp4'}`;
+    window.open(streamUrl, '_blank');
 }
 
 function escapeHtml(str) {
