@@ -26,3 +26,6 @@ build/
 
 # Railway
 .railway/
+
+# Vercel
+.vercel/
