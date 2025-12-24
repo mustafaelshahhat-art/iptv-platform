@@ -289,21 +289,11 @@ function playChannel(id) {
         return;
     }
 
-    const channel = channels.find(c => Number(c.id) === numericId);
+    // Direct stream via Backend Redirect (Handles AUTH & HTTPS->HTTP)
+    const streamUrl = `${API}/stream/live/${numericId}`;
 
-    if (channel) {
-        try {
-            sessionStorage.setItem('currentChannel', JSON.stringify({
-                id: channel.id,
-                name: channel.name || 'Unknown',
-                icon: channel.icon || '/placeholder.jpg'
-            }));
-        } catch (e) {
-            // SessionStorage might be disabled
-        }
-    }
-
-    window.location.href = `/player?id=${numericId}&type=live`;
+    // Open in new tab to bypass Vercel/Browser Mixed Content restrictions
+    window.open(streamUrl, '_blank');
 }
 
 // ==========================================
