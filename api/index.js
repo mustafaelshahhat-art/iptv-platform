@@ -41,7 +41,8 @@ app.use(express.json({ limit: '1mb' }));
 // Block sensitive files
 app.use((req, res, next) => {
     const blocked = ['.env', '.git', 'node_modules', 'package.json'];
-    if (blocked.some(b => req.path.toLowerCase().includes(b))) {
+    // Check if req.path exists and is a string
+    if (req.path && typeof req.path === 'string' && blocked.some(b => req.path.toLowerCase().includes(b))) {
         return res.status(403).json({ success: false, error: 'Forbidden' });
     }
     next();
@@ -86,13 +87,6 @@ function buildSeriesUrl(episodeId, extension = 'mp4') {
     const id = sanitizeId(episodeId);
     const ext = sanitizeExtension(extension);
     return `${IPTV_CONFIG.serverUrl}/series/${IPTV_CONFIG.username}/${IPTV_CONFIG.password}/${id}.${ext}`;
-}
-
-function buildLiveUrl(streamId) {
-    const id = sanitizeId(streamId);
-    const baseUrl = new URL(IPTV_CONFIG.serverUrl);
-    baseUrl.port = '8080';
-    return `${baseUrl.origin}/live/${IPTV_CONFIG.username}/${IPTV_CONFIG.password}/${id}.m3u8`;
 }
 
 function sendError(res, status, message) {
@@ -269,7 +263,7 @@ app.get('/api/live/category/:id', async (req, res) => {
 });
 
 // ==========================================
-// STREAMING
+// STREAMING & PROXY
 // ==========================================
 
 app.get('/stream/:id(\\d+)', async (req, res) => {
@@ -364,13 +358,96 @@ app.get('/stream/series/:id/:extension', async (req, res) => {
     }
 });
 
-// Live TV - Redirect to IPTV source
-app.get('/stream/live/:id(\\d+)', (req, res) => {
+// Live TV - Full HLS Proxy
+app.get('/stream/live/:id(\\d+)', async (req, res) => {
     const streamId = sanitizeId(req.params.id);
     if (!streamId) return sendError(res, 400, 'Invalid channel ID');
 
-    const liveUrl = buildLiveUrl(streamId);
-    res.redirect(liveUrl);
+    // Force port 8080 for live streams
+    const id = sanitizeId(streamId);
+    const baseUrl = new URL(IPTV_CONFIG.serverUrl);
+    baseUrl.port = '8080';
+    const liveUrl = `${baseUrl.origin}/live/${IPTV_CONFIG.username}/${IPTV_CONFIG.password}/${id}.m3u8`;
+    const liveBase = `${baseUrl.origin}/live/${IPTV_CONFIG.username}/${IPTV_CONFIG.password}/`;
+
+    try {
+        const response = await axios.get(liveUrl, {
+            timeout: 10000, // Short timeout for Vercel
+            headers: { 'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18' },
+            responseType: 'text',
+            maxRedirects: 5
+        });
+
+        if (!response.data || typeof response.data !== 'string') {
+            return sendError(res, 502, 'Invalid playlist response');
+        }
+
+        // Rewrite segment URLs to proxy through backend
+        let playlist = response.data.split('\n').map(line => {
+            line = line.trim();
+            if (!line) return line;
+
+            // Handle encryption keys
+            if (line.includes('URI="')) {
+                return line.replace(/URI="([^"]+)"/, (match, uri) => {
+                    const fullUrl = uri.startsWith('http') ? uri : liveBase + uri;
+                    return `URI="/stream/live-segment?url=${encodeURIComponent(fullUrl)}"`;
+                });
+            }
+
+            // Skip comments
+            if (line.startsWith('#')) return line;
+
+            // Rewrite segment URLs
+            const fullUrl = line.startsWith('http') ? line : liveBase + line;
+            return `/stream/live-segment?url=${encodeURIComponent(fullUrl)}`;
+        }).join('\n');
+
+        res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Cache-Control', 'no-cache, no-store');
+        res.send(playlist);
+
+    } catch (error) {
+        sendError(res, 500, 'Channel unavailable');
+    }
+});
+
+// Live segment proxy
+app.get('/stream/live-segment', async (req, res) => {
+    const segmentUrl = req.query.url;
+    if (!segmentUrl) return res.status(400).end();
+
+    try { new URL(segmentUrl); } catch { return res.status(400).end(); }
+
+    try {
+        const response = await axios({
+            method: 'GET',
+            url: segmentUrl,
+            responseType: 'stream',
+            timeout: 15000,
+            headers: {
+                'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
+                'Accept': '*/*',
+                'Referer': segmentUrl.split('/').slice(0, 3).join('/') + '/'
+            },
+            maxRedirects: 5
+        });
+
+        const contentType = response.headers['content-type'] || 'video/mp2t';
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Cache-Control', 'no-cache');
+
+        response.data.pipe(res);
+
+        req.on('close', () => {
+            if (!res.writableEnded) response.data.destroy();
+        });
+
+    } catch (error) {
+        if (!res.headersSent) res.status(500).end();
+    }
 });
 
 // ==========================================
