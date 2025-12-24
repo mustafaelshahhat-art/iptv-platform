@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IPTV Platform - Movies, Series & Live TV</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/global.css">
+    <style>
+        .welcome {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: calc(100vh - var(--header-height) - var(--space-10));
+            text-align: center;
+            padding: var(--space-6);
+        }
+
+        .welcome-icon {
+            font-size: 5rem;
+            margin-bottom: var(--space-5);
+            animation: float 4s ease-in-out infinite;
+            filter: drop-shadow(0 4px 24px var(--color-accent-glow));
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-16px);
+            }
+        }
+
+        .welcome h1 {
+            font-size: var(--text-4xl);
+            font-weight: 800;
+            margin-bottom: var(--space-3);
+            background: linear-gradient(135deg, var(--color-accent), #ff6b6b, var(--color-accent));
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: shimmer 3s linear infinite;
+            letter-spacing: -0.02em;
+        }
+
+        @keyframes shimmer {
+            to {
+                background-position: 200% center;
+            }
+        }
+
+        .welcome p {
+            color: var(--color-text-secondary);
+            font-size: var(--text-lg);
+            margin-bottom: var(--space-8);
+        }
+
+        .welcome-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-5);
+            justify-content: center;
+        }
+
+        .welcome-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: var(--space-3);
+            padding: var(--space-6) var(--space-8);
+            background: var(--color-bg-card);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-xl);
+            min-width: 160px;
+            text-decoration: none;
+            transition: var(--transition-base);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .welcome-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, transparent, rgba(229, 9, 20, 0.1));
+            opacity: 0;
+            transition: var(--transition-base);
+        }
+
+        .welcome-btn:hover {
+            transform: translateY(-8px);
+            border-color: var(--color-accent);
+            box-shadow: var(--shadow-card-hover), var(--shadow-glow);
+        }
+
+        .welcome-btn:hover::before {
+            opacity: 1;
+        }
+
+        .welcome-btn .icon {
+            font-size: 3rem;
+            transition: var(--transition-base);
+        }
+
+        .welcome-btn:hover .icon {
+            transform: scale(1.1);
+        }
+
+        .welcome-btn span:last-child {
+            font-size: var(--text-lg);
+            font-weight: 700;
+            color: var(--color-text-primary);
+        }
+
+        @media (max-width: 767px) {
+            .welcome-buttons {
+                flex-direction: column;
+                width: 100%;
+                max-width: 280px;
+            }
+
+            .welcome-btn {
+                width: 100%;
+                padding: var(--space-5) var(--space-6);
+            }
+
+            .welcome-icon {
+                font-size: 4rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <a href="/" class="logo">
+                    <span class="logo-icon">🎬</span>
+                    <span class="logo-text">IPTV Platform</span>
+                </a>
+                <nav class="nav">
+                    <a href="/movies" class="nav-link">Movies</a>
+                    <a href="/series" class="nav-link">Series</a>
+                    <a href="/live" class="nav-link">Live TV</a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <main class="welcome">
+        <div class="welcome-icon">🎬</div>
+        <h1>IPTV Platform</h1>
+        <p>Your premium streaming destination</p>
+        <div class="welcome-buttons">
+            <a href="/movies" class="welcome-btn">
+                <span class="icon">🎬</span>
+                <span>Movies</span>
+            </a>
+            <a href="/series" class="welcome-btn">
+                <span class="icon">📺</span>
+                <span>Series</span>
+            </a>
+            <a href="/live" class="welcome-btn">
+                <span class="icon">📡</span>
+                <span>Live TV</span>
+            </a>
+        </div>
+    </main>
+</body>
+
+</html>

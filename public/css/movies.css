@@ -1,0 +1,44 @@
+/* ================================================
+   MOVIES PAGE - Premium Styles
+   ================================================ */
+
+/* Movies-specific hover effect */
+.movies-page .content-card:hover {
+    box-shadow: var(--shadow-card-hover), 0 0 32px rgba(229, 9, 20, 0.15);
+}
+
+/* Poster gradient overlay on hover */
+.movies-page .content-poster::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 50%;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
+    opacity: 0;
+    transition: var(--transition-base);
+    pointer-events: none;
+}
+
+.movies-page .content-card:hover .content-poster::after {
+    opacity: 1;
+}
+
+/* Play indicator on hover */
+.movies-page .content-poster::before {
+    content: '▶';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    font-size: 2rem;
+    color: white;
+    z-index: 2;
+    transition: var(--transition-base);
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.5));
+}
+
+.movies-page .content-card:hover .content-poster::before {
+    transform: translate(-50%, -50%) scale(1);
+}

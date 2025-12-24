@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Watch IPTV movies with our professional video player">
+    <title>Movie Player - IPTV Movies</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap"
+        rel="stylesheet">
+    <link href="https://vjs.zencdn.net/8.6.1/video-js.css" rel="stylesheet" />
+    <link rel="stylesheet" href="css/global.css">
+    <link rel="stylesheet" href="css/player.css">
+</head>
+
+<body class="player-page">
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <a href="/" id="back-btn" class="back-btn">
+                    <span class="back-icon">←</span>
+                    <span id="back-text">Back</span>
+                </a>
+                <div class="logo">
+                    <span class="logo-icon">🎬</span>
+                    <span class="logo-text" id="logo-text">IPTV</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Player Section -->
+    <main class="player-main">
+        <div class="player-container">
+            <!-- Loading State -->
+            <div id="player-loading" class="player-loading">
+                <div class="spinner"></div>
+                <p>Loading player...</p>
+            </div>
+
+            <!-- Error State -->
+            <div id="player-error" class="player-error" style="display: none;">
+                <div class="error-icon">⚠️</div>
+                <h2>Unable to Load Video</h2>
+                <p id="player-error-message">The video could not be loaded. Please try again.</p>
+                <div class="error-actions">
+                    <button onclick="retryPlayer()" class="retry-btn">Retry</button>
+                    <a href="/" class="back-link">Back to Movies</a>
+                </div>
+            </div>
+
+            <!-- Video Player -->
+            <div id="player-wrapper" style="display: none;">
+                <video id="video-player" class="video-js vjs-big-play-centered vjs-fluid" controls preload="auto"
+                    poster="" data-setup='{"fluid": true, "aspectRatio": "16:9"}'>
+                    <p class="vjs-no-js">
+                        To view this video please enable JavaScript, and consider upgrading to a
+                        web browser that supports HTML5 video
+                    </p>
+                </video>
+            </div>
+        </div>
+
+        <!-- Movie Info -->
+        <div class="movie-info-section" id="movie-info" style="display: none;">
+            <div class="container">
+                <div class="movie-details">
+                    <h1 class="movie-title" id="movie-title">Movie Title</h1>
+                    <div class="movie-meta">
+                        <span class="movie-year" id="movie-year">2024</span>
+                        <span class="separator">•</span>
+                        <span class="movie-rating" id="movie-rating">★ N/A</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://vjs.zencdn.net/8.6.1/video.min.js"></script>
+    <script src="js/player.js"></script>
+</body>
+
+</html>

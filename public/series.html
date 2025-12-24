@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Series - IPTV Platform</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="css/global.css">
+    <link rel="stylesheet" href="css/series.css">
+</head>
+
+<body class="series-page">
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <a href="/" class="logo"><span class="logo-icon">📺</span><span class="logo-text">IPTV</span></a>
+                <nav class="nav">
+                    <a href="/movies" class="nav-link">Movies</a>
+                    <a href="/series" class="nav-link active">Series</a>
+                    <a href="/live" class="nav-link">Live TV</a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="container">
+            <div id="loading" class="loading-state">
+                <div class="spinner"></div>
+                <p>Loading...</p>
+            </div>
+            <div id="error" class="error-state" style="display:none;">
+                <div class="error-icon">⚠️</div>
+                <h2>Error</h2>
+                <p id="error-msg"></p><button onclick="retry()" class="retry-btn">Retry</button>
+            </div>
+
+            <div id="categories-section" style="display:none;">
+                <div class="section-header">
+                    <h1 class="section-title">Series Categories</h1>
+                </div>
+                <div id="categories-grid" class="categories-grid"></div>
+            </div>
+
+            <div id="series-list-section" style="display:none;">
+                <div class="section-header">
+                    <button id="back-to-cats" class="back-btn"><span>←</span><span>Categories</span></button>
+                    <h1 id="category-title" class="section-title"></h1>
+                </div>
+                <div id="series-grid" class="content-grid"></div>
+            </div>
+
+            <div id="series-detail-section" style="display:none;">
+                <div class="series-hero">
+                    <button id="back-to-list" class="back-btn"><span>←</span><span>Back</span></button>
+                    <div class="series-info">
+                        <img id="series-poster" src="" alt="">
+                        <div class="series-details">
+                            <h1 id="series-title"></h1>
+                            <div class="series-meta"><span id="series-year"></span><span id="series-rating"></span>
+                            </div>
+                            <p id="series-plot"></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="episodes-section">
+                    <div class="episodes-header">
+                        <h2>Episodes</h2>
+                        <select id="season-select" class="season-dropdown"></select>
+                    </div>
+                    <div id="episodes-grid" class="episodes-grid"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/series.js"></script>
+</body>
+
+</html>
