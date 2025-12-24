@@ -76,12 +76,6 @@ function buildApiUrl(action, params = {}) {
     return url.toString();
 }
 
-// Convert HTTP URL to HTTPS for redirection
-function toHttps(url) {
-    if (!url) return url;
-    return url.replace(/^http:/, 'https:');
-}
-
 function buildMovieUrl(streamId, extension = 'mp4') {
     const id = sanitizeId(streamId);
     const ext = sanitizeExtension(extension);
@@ -117,9 +111,8 @@ app.use((req, res, next) => {
 });
 
 // ==========================================
-// DATA API (Movies/Series/Live Categories)
+// API ROUTES (Data)
 // ==========================================
-// These still use the proxy to fetch JSON data (safe from CORS)
 
 app.get('/api/categories', async (req, res) => {
     try {
@@ -261,54 +254,48 @@ app.get('/api/live/category/:id', async (req, res) => {
 });
 
 // ==========================================
-// STREAMING - REDIRECT TO HTTPS
+// STREAMING - REDIRECT TO ORIGINAL URL
 // ==========================================
 
-// Movies - Redirect
-app.get('/stream/:id(\\d+)', async (req, res) => {
+// Movies
+app.get('/stream/:id(\\d+)', (req, res) => {
     const streamId = sanitizeId(req.params.id);
     const extension = sanitizeExtension(req.query.ext);
 
     if (!streamId) return sendError(res, 400, 'Invalid stream ID');
 
+    // Redirect to original HTTP URL
     const movieUrl = buildMovieUrl(streamId, extension);
-    const httpsUrl = toHttps(movieUrl);
-
-    // Redirect to HTTPS version
-    res.redirect(httpsUrl);
+    res.redirect(movieUrl);
 });
 
-// Series - Redirect
-app.get('/stream/series/:id/:extension', async (req, res) => {
+// Series
+app.get('/stream/series/:id/:extension', (req, res) => {
     const episodeId = sanitizeId(req.params.id);
     const extension = sanitizeExtension(req.params.extension);
 
     if (!episodeId) return sendError(res, 400, 'Invalid episode ID');
 
+    // Redirect to original HTTP URL
     const episodeUrl = buildSeriesUrl(episodeId, extension);
-    const httpsUrl = toHttps(episodeUrl);
-
-    // Redirect to HTTPS version
-    res.redirect(httpsUrl);
+    res.redirect(episodeUrl);
 });
 
-// Live TV - Redirect
+// Live TV
 app.get('/stream/live/:id(\\d+)', (req, res) => {
     const streamId = sanitizeId(req.params.id);
     if (!streamId) return sendError(res, 400, 'Invalid channel ID');
 
-    // Force port 8080 and use HTTP (Browser handles Mixed Content in new tab)
     const id = sanitizeId(streamId);
     const baseUrl = new URL(IPTV_CONFIG.serverUrl);
+
+    // Force port 8080 for live if needed
     baseUrl.port = '8080';
     const liveUrl = `${baseUrl.origin}/live/${IPTV_CONFIG.username}/${IPTV_CONFIG.password}/${id}.m3u8`;
 
-    // Redirect to original HTTP URL
+    // Redirect to original HTTP URL (open in new tab to avoid mixed content)
     res.redirect(liveUrl);
 });
-
-// Segment proxy isn't needed for redirect mode, but keeping it doesn't hurt.
-// However, the playlist from the redirect will contain direct links to the IPTV server.
 
 // ==========================================
 // UTILITY
@@ -317,7 +304,7 @@ app.get('/stream/live/:id(\\d+)', (req, res) => {
 app.get('/api/health', (req, res) => {
     res.json({
         success: true,
-        status: 'healthy HTTPS redirect mode',
+        status: 'healthy',
         configured: isConfigValid,
         timestamp: new Date().toISOString()
     });
