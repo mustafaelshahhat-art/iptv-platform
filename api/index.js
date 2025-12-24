@@ -79,7 +79,7 @@ function sendError(res, status, message) {
 const axiosDefaults = { timeout: 10000, headers: { 'User-Agent': 'Mozilla/5.0' } };
 
 // ==========================================
-// DATA ROUTES (Categories/Lists)
+// DATA ROUTES
 // ==========================================
 
 app.get('/api/categories', async (req, res) => {
@@ -190,46 +190,89 @@ app.get('/api/live/category/:id', async (req, res) => {
 });
 
 // ==========================================
-// STREAMING - ALL REDIRECT (Direct & Fast)
+// STREAMING
 // ==========================================
 
-// Movies - Redirect
-app.get('/stream/:id(\\d+)', (req, res) => {
+// Movies - PROXY (Play in app)
+app.get('/stream/:id(\\d+)', async (req, res) => {
     const streamId = sanitizeId(req.params.id);
     const extension = sanitizeExtension(req.query.ext);
     if (!streamId) return sendError(res, 400, 'ID required');
 
-    // Redirect 302 to original HTTP URL
-    res.redirect(buildMovieUrl(streamId, extension));
+    try {
+        const url = buildMovieUrl(streamId, extension);
+        const headers = { 'User-Agent': 'VLC/3.0.18', 'Accept': '*/*' };
+        if (req.headers.range) headers['Range'] = req.headers.range;
+
+        const response = await axios({
+            method: 'GET', url, headers,
+            responseType: 'stream', timeout: 30000, validateStatus: s => s < 500
+        });
+
+        res.status(response.status);
+
+        // Forward headers
+        ['content-type', 'content-length', 'content-range', 'accept-ranges'].forEach(h => {
+            if (response.headers[h]) res.setHeader(h, response.headers[h]);
+        });
+
+        // Force mp4/video content type to prevent download
+        if (!response.headers['content-type'] || extension === 'mkv') {
+            res.setHeader('Content-Type', 'video/mp4');
+        }
+
+        response.data.pipe(res);
+        req.on('close', () => !res.writableEnded && response.data.destroy());
+
+    } catch (e) { sendError(res, 500, 'Stream Error'); }
 });
 
-// Series - Redirect
-app.get('/stream/series/:id/:extension', (req, res) => {
+// Series - PROXY (Play in app)
+app.get('/stream/series/:id/:extension', async (req, res) => {
     const episodeId = sanitizeId(req.params.id);
     const extension = sanitizeExtension(req.params.extension);
     if (!episodeId) return sendError(res, 400, 'ID required');
 
-    // Redirect 302 to original HTTP URL
-    res.redirect(buildSeriesUrl(episodeId, extension));
+    try {
+        const url = buildSeriesUrl(episodeId, extension);
+        const headers = { 'User-Agent': 'VLC/3.0.18', 'Accept': '*/*' };
+        if (req.headers.range) headers['Range'] = req.headers.range;
+
+        const response = await axios({
+            method: 'GET', url, headers,
+            responseType: 'stream', timeout: 30000, validateStatus: s => s < 500
+        });
+
+        res.status(response.status);
+
+        ['content-type', 'content-length', 'content-range', 'accept-ranges'].forEach(h => {
+            if (response.headers[h]) res.setHeader(h, response.headers[h]);
+        });
+
+        if (!response.headers['content-type'] || extension === 'mkv') {
+            res.setHeader('Content-Type', 'video/mp4');
+        }
+
+        response.data.pipe(res);
+        req.on('close', () => !res.writableEnded && response.data.destroy());
+
+    } catch (e) { sendError(res, 500, 'Stream Error'); }
 });
 
-// Live TV - Redirect
+// Live TV - REDIRECT (New Tab)
 app.get('/stream/live/:id(\\d+)', (req, res) => {
     const streamId = sanitizeId(req.params.id);
     if (!streamId) return sendError(res, 400, 'ID required');
-
     const baseUrl = new URL(IPTV_CONFIG.serverUrl);
     baseUrl.port = '8080';
-    const liveUrl = `${baseUrl.origin}/live/${IPTV_CONFIG.username}/${IPTV_CONFIG.password}/${streamId}.m3u8`;
-
-    res.redirect(liveUrl);
+    res.redirect(`${baseUrl.origin}/live/${IPTV_CONFIG.username}/${IPTV_CONFIG.password}/${streamId}.m3u8`);
 });
 
 // ==========================================
 // UTILITY
 // ==========================================
 
-app.get('/api/health', (req, res) => res.json({ status: 'healthy', mode: 'Pure Redirect' }));
+app.get('/api/health', (req, res) => res.json({ status: 'healthy', mode: 'Proxy VOD / Redirect Live' }));
 app.use((req, res) => res.status(404).json({ error: 'Not found' }));
 app.use((err, req, res, next) => res.status(500).json({ error: 'Internal Server Error' }));
 

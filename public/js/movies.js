@@ -73,9 +73,17 @@ function renderMovies() {
 }
 
 function playMovie(id, ext) {
-    if (!id) return;
-    const streamUrl = `${API}/stream/${id}?ext=${ext || 'mp4'}`;
-    window.open(streamUrl, '_blank');
+    const movie = movies.find(m => m.id === id);
+    if (movie) {
+        sessionStorage.setItem('currentMovie', JSON.stringify({
+            id: movie.id,
+            name: movie.name,
+            year: movie.year || 'N/A',
+            rating: movie.rating || 'N/A',
+            icon: movie.icon
+        }));
+    }
+    window.location.href = `/player?id=${id}&ext=${ext}&type=movie`;
 }
 
 function escapeHtml(str) {
