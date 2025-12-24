@@ -254,42 +254,109 @@ app.get('/api/live/category/:id', async (req, res) => {
 });
 
 // ==========================================
-// STREAMING - REDIRECT TO ORIGINAL URL
+// STREAMING - PROXY MODE (For Movies/Series)
 // ==========================================
 
-// Movies
-app.get('/stream/:id(\\d+)', (req, res) => {
+app.get('/stream/:id(\\d+)', async (req, res) => {
     const streamId = sanitizeId(req.params.id);
     const extension = sanitizeExtension(req.query.ext);
 
     if (!streamId) return sendError(res, 400, 'Invalid stream ID');
 
-    // Redirect to original HTTP URL
-    const movieUrl = buildMovieUrl(streamId, extension);
-    res.redirect(movieUrl);
+    try {
+        const movieUrl = buildMovieUrl(streamId, extension);
+        const headers = {
+            'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
+            'Accept': '*/*'
+        };
+
+        if (req.headers.range) {
+            headers['Range'] = req.headers.range;
+        }
+
+        const response = await axios({
+            method: 'GET',
+            url: movieUrl,
+            headers,
+            responseType: 'stream',
+            timeout: 30000,
+            validateStatus: s => s < 500
+        });
+
+        res.status(response.status);
+
+        ['content-type', 'content-length', 'content-range', 'accept-ranges'].forEach(h => {
+            if (response.headers[h]) res.setHeader(h, response.headers[h]);
+        });
+
+        response.data.pipe(res);
+
+        req.on('close', () => {
+            if (!res.writableEnded) response.data.destroy();
+        });
+
+    } catch (error) {
+        // Fallback to caching issues
+        sendError(res, 500, 'Streaming failed');
+    }
 });
 
-// Series
-app.get('/stream/series/:id/:extension', (req, res) => {
+app.get('/stream/series/:id/:extension', async (req, res) => {
     const episodeId = sanitizeId(req.params.id);
     const extension = sanitizeExtension(req.params.extension);
 
     if (!episodeId) return sendError(res, 400, 'Invalid episode ID');
 
-    // Redirect to original HTTP URL
-    const episodeUrl = buildSeriesUrl(episodeId, extension);
-    res.redirect(episodeUrl);
+    try {
+        const episodeUrl = buildSeriesUrl(episodeId, extension);
+        const headers = {
+            'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
+            'Accept': '*/*'
+        };
+
+        if (req.headers.range) {
+            headers['Range'] = req.headers.range;
+        }
+
+        const response = await axios({
+            method: 'GET',
+            url: episodeUrl,
+            headers,
+            responseType: 'stream',
+            timeout: 30000,
+            validateStatus: s => s < 500
+        });
+
+        res.status(response.status);
+
+        ['content-length', 'content-range', 'accept-ranges'].forEach(h => {
+            if (response.headers[h]) res.setHeader(h, response.headers[h]);
+        });
+
+        if (extension === 'mkv') {
+            res.setHeader('Content-Type', 'video/mp4');
+        } else {
+            res.setHeader('Content-Type', response.headers['content-type'] || 'video/mp4');
+        }
+
+        response.data.pipe(res);
+
+        req.on('close', () => {
+            if (!res.writableEnded) response.data.destroy();
+        });
+
+    } catch (error) {
+        sendError(res, 500, 'Streaming failed');
+    }
 });
 
-// Live TV
+// Live TV - KEEP AS REDIRECT (Because of timeouts)
 app.get('/stream/live/:id(\\d+)', (req, res) => {
     const streamId = sanitizeId(req.params.id);
     if (!streamId) return sendError(res, 400, 'Invalid channel ID');
 
     const id = sanitizeId(streamId);
     const baseUrl = new URL(IPTV_CONFIG.serverUrl);
-
-    // Force port 8080 for live if needed
     baseUrl.port = '8080';
     const liveUrl = `${baseUrl.origin}/live/${IPTV_CONFIG.username}/${IPTV_CONFIG.password}/${id}.m3u8`;
 
@@ -304,7 +371,7 @@ app.get('/stream/live/:id(\\d+)', (req, res) => {
 app.get('/api/health', (req, res) => {
     res.json({
         success: true,
-        status: 'healthy',
+        status: 'healthy - Mixed Mode (Proxy VOD, Redirect Live)',
         configured: isConfigValid,
         timestamp: new Date().toISOString()
     });
