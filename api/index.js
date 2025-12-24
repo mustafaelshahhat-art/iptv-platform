@@ -267,7 +267,9 @@ app.get('/stream/:id(\\d+)', async (req, res) => {
         const movieUrl = buildMovieUrl(streamId, extension);
         const headers = {
             'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
-            'Accept': '*/*'
+            'Accept': '*/*',
+            'Accept-Encoding': 'identity',
+            'Connection': 'keep-alive'
         };
 
         if (req.headers.range) {
@@ -280,6 +282,7 @@ app.get('/stream/:id(\\d+)', async (req, res) => {
             headers,
             responseType: 'stream',
             timeout: 30000,
+            maxRedirects: 5,
             validateStatus: s => s < 500
         });
 
@@ -311,7 +314,9 @@ app.get('/stream/series/:id/:extension', async (req, res) => {
         const episodeUrl = buildSeriesUrl(episodeId, extension);
         const headers = {
             'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
-            'Accept': '*/*'
+            'Accept': '*/*',
+            'Accept-Encoding': 'identity',
+            'Connection': 'keep-alive'
         };
 
         if (req.headers.range) {
@@ -324,6 +329,7 @@ app.get('/stream/series/:id/:extension', async (req, res) => {
             headers,
             responseType: 'stream',
             timeout: 30000,
+            maxRedirects: 5,
             validateStatus: s => s < 500
         });
 
@@ -350,7 +356,7 @@ app.get('/stream/series/:id/:extension', async (req, res) => {
     }
 });
 
-// Live TV - KEEP AS REDIRECT (Because of timeouts)
+// Live TV - KEEP AS REDIRECT (Because of timeouts and Mixed Content in iframe)
 app.get('/stream/live/:id(\\d+)', (req, res) => {
     const streamId = sanitizeId(req.params.id);
     if (!streamId) return sendError(res, 400, 'Invalid channel ID');
@@ -371,7 +377,7 @@ app.get('/stream/live/:id(\\d+)', (req, res) => {
 app.get('/api/health', (req, res) => {
     res.json({
         success: true,
-        status: 'healthy - Mixed Mode (Proxy VOD, Redirect Live)',
+        status: 'healthy - Mixed Mode 2.0 (Proxy VOD, Redirect Live)',
         configured: isConfigValid,
         timestamp: new Date().toISOString()
     });
